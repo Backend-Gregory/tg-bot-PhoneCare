@@ -24,7 +24,7 @@
 
 ## Ссылка на бота
 
-👉 [@phonecare_bot](https://t.me/phonecare_bot)
+👉 [@phonecare_service_bot](https://t.me/phonecare_service_bot)
 
 ## Установка и запуск (локально)
 
