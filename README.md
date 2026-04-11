@@ -25,11 +25,3 @@
 ## Ссылка на бота
 
 👉 [@phonecare_service_bot](https://t.me/phonecare_service_bot)
-
-## Установка и запуск (локально)
-
-```bash
-git clone https://github.com/Backend-Gregory/tg-bot-PhoneCare.git
-cd tg-bot-PhoneCare
-pip install -r requirements.txt
-python main.py
