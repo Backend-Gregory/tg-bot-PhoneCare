@@ -26,6 +26,7 @@ bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# --- Клавиатура выбора услуг ---
 service_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='Замена экрана'), KeyboardButton(text='Замена аккумулятора')],
@@ -52,7 +53,15 @@ class OrderForm(StatesGroup):
     name = State()
     phone = State()
     time = State()
-    
+
+# --- Мастера ---
+masters = {
+    "Замена экрана": ["Антон", "Дмитрий"],
+    "Замена аккумулятора": ["Антон", "Сергей"],
+    "Диагностика": ["Сергей"],
+    "Ремонт кнопок": ["Антон", "Дмитрий"]
+}
+
 # --- Хендлеры ---
 @dp.message(Command('start'))
 async def start(message: types.Message, state: FSMContext):
