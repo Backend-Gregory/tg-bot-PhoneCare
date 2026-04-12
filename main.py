@@ -90,6 +90,14 @@ async def get_service(message: types.Message, state: FSMContext):
     await message.answer('Выбери мастера:', reply_markup=ReplyKeyboardRemove())
     await message.answer(reply_markup=master_kb)
 
+@dp.callback_query(OrderForm.master)
+async def get_master(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(master=callback.data)
+    await state.set_state(OrderForm.name)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer('Как тебя зовут?')
+    await callback.answer()
+
 @dp.message(OrderForm.name)
 async def get_name(message: types.Message, state: FSMContext):
     if not message.text or not message.text.strip():
