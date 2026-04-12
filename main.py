@@ -108,8 +108,8 @@ async def get_name(message: types.Message, state: FSMContext):
         return
     await state.update_data(name=message.text)
     await state.set_state(OrderForm.phone)
-    await message.answer('Какой номер телефона?')
-
+    await message.answer('Какой у вас номер телефона?')
+    
 @dp.message(OrderForm.phone)
 async def get_phone(message: types.Message, state: FSMContext):
     if not message.text or not message.text.strip():
@@ -119,13 +119,26 @@ async def get_phone(message: types.Message, state: FSMContext):
         await message.answer("❌ Слишком длинный телефон")
         return
     await state.update_data(phone=message.text)
+    await state.set_state(OrderForm.time)
+    await message.answer("Напиши удобное время и дату (например: завтра в 15:00)")
+
+@dp.message(OrderForm.time)
+async def get_time(message: types.Message, state: FSMContext):
+    if not message.text.strip():
+        await message.answer('Введите текст')
+        return
+    await state.update_data(time=message.text)
     data = await state.get_data()
+
+    text = f"📝 Новая заявка!\n\n"
+    text += f"Услуга: {data.get('service')}\n"
+    text += f"Мастер: {data.get('master')}\n"
+    text += f"Имя: {data.get('name')}\n"
+    text += f"Телефон: {data.get('phone')}\n"
+    text += f"Время: {data.get('time')}"
     
     try:
-        await bot.send_message(
-            ADMIN_ID,
-            f"📝 Новая заявка!\nИмя: {data.get('name')}\nТелефон: {data.get('phone')}"
-        )
+        await bot.send_message(ADMIN_ID, text)
         await message.answer('✅ Спасибо! Мы свяжемся с вами.', reply_markup=kb)
         await state.clear()
     except Exception as e:
