@@ -26,7 +26,15 @@ bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
-# --- Клавиатура ---
+service_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text='Замена экрана'), KeyboardButton(text='Замена аккумулятора')],
+        [KeyboardButton(text='Диагностика'), KeyboardButton(text='Ремонт кнопок')]
+    ],
+    resize_keyboard=True
+)
+
+# --- Главная клавиатура ---
 kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='📞 Контакты'), KeyboardButton(text='💼 Услуги')],
