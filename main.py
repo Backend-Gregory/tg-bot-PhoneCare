@@ -39,9 +39,12 @@ kb = ReplyKeyboardMarkup(
 
 # --- FSM состояния ---
 class OrderForm(StatesGroup):
+    service = State()
+    master = State()
     name = State()
     phone = State()
-
+    time = State()
+    
 # --- Хендлеры ---
 @dp.message(Command('start'))
 async def start(message: types.Message, state: FSMContext):
