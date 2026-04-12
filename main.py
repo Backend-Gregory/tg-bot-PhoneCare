@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -75,8 +75,20 @@ async def start(message: types.Message, state: FSMContext):
 
 @dp.message(lambda message: message.text == '📝 Записаться')
 async def start_order(message: types.Message, state: FSMContext):
-    await state.set_state(OrderForm.name)
-    await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove())
+    await state.set_state(OrderForm.service)
+    await message.answer('Выбор услуги:', reply_markup=service_kb)
+
+@dp.message(OrderForm.service)
+async def get_service(message: types.Message, state: FSMContext):
+    await state.update_data(service=message.text)
+    await state.set_state(OrderForm.master)
+    master_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=master, callback_data=master) for master in masters[message.text]]
+        ]
+    )
+    await message.answer('Выбери мастера:', reply_markup=ReplyKeyboardRemove())
+    await message.answer(reply_markup=master_kb)
 
 @dp.message(OrderForm.name)
 async def get_name(message: types.Message, state: FSMContext):
