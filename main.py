@@ -80,17 +80,27 @@ async def start_order(message: types.Message, state: FSMContext):
 
 @dp.message(OrderForm.service)
 async def get_service(message: types.Message, state: FSMContext):
+    if message.text not in masters:
+        await message.answer('Используй кнопки', reply_markup=service_kb)
+        return
     await state.update_data(service=message.text)
     await state.set_state(OrderForm.master)
     master_kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=master)] for master in masters[message.text]
-        ]
+        ],
+        resize_keyboard=True
     )
     await message.answer("Выбери мастера:", reply_markup=master_kb)
 
 @dp.message(OrderForm.master)
 async def get_master(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    service = data.get("service")
+    if message.text not in masters.get(service, []):
+        await message.answer("❌ Выбери мастера из списка")
+        return
+    
     await state.update_data(master=message.text)
     await state.set_state(OrderForm.name)
     await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove())
