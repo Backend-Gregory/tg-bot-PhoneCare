@@ -91,14 +91,16 @@ async def get_service(message: types.Message, state: FSMContext):
         ],
         resize_keyboard=True
     )
+    await state.update_data(master_kb=master_kb)
     await message.answer("Выбери мастера:", reply_markup=master_kb)
 
 @dp.message(OrderForm.master)
 async def get_master(message: types.Message, state: FSMContext):
     data = await state.get_data()
     service = data.get("service")
+    master_kb = data.get("master_kb")
     if message.text not in masters.get(service, []):
-        await message.answer("❌ Выбери мастера из списка")
+        await message.answer("❌ Выбери мастера из списка", reply_markup=master_kb)
         return
     
     await state.update_data(master=message.text)
