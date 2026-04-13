@@ -15,7 +15,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 WEBHOOK_PATH = "/webhook"
-BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "https://your-app.onrender.com")  # Render подставит сам
+BASE_URL = "https://tg-bot-phonecare.onrender.com"
 WEBHOOK_URL = f"{BASE_URL}{WEBHOOK_PATH}"
 
 # --- Логирование ---
