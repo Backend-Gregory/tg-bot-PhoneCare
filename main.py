@@ -93,7 +93,7 @@ async def get_service(message: types.Message, state: FSMContext):
 async def get_master(message: types.Message, state: FSMContext):
     await state.update_data(master=message.text)
     await state.set_state(OrderForm.name)
-    await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove)
+    await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove())
 
 @dp.message(OrderForm.name)
 async def get_name(message: types.Message, state: FSMContext):
