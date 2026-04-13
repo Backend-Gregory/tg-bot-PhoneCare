@@ -87,7 +87,7 @@ async def get_service(message: types.Message, state: FSMContext):
             [InlineKeyboardButton(text=master, callback_data=master)] for master in masters[message.text]
         ]
     )
-    await message.answer("", reply_markup=ReplyKeyboardRemove())
+    await message.answer("✅", reply_markup=ReplyKeyboardRemove())
     await message.answer("Выбери мастера:", reply_markup=master_kb)
 
 @dp.callback_query(OrderForm.master)
