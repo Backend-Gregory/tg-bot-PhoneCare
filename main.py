@@ -82,21 +82,18 @@ async def start_order(message: types.Message, state: FSMContext):
 async def get_service(message: types.Message, state: FSMContext):
     await state.update_data(service=message.text)
     await state.set_state(OrderForm.master)
-    master_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=master, callback_data=master)] for master in masters[message.text]
+    master_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=master)] for master in masters[message.text]
         ]
     )
-    await message.answer("✅", reply_markup=ReplyKeyboardRemove())
     await message.answer("Выбери мастера:", reply_markup=master_kb)
 
-@dp.callback_query(OrderForm.master)
-async def get_master(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(master=callback.data)
+@dp.message(OrderForm.master)
+async def get_master(message: types.Message, state: FSMContext):
+    await state.update_data(master=message.text)
     await state.set_state(OrderForm.name)
-    await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.message.answer('Как тебя зовут?')
-    await callback.answer()
+    await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove)
 
 @dp.message(OrderForm.name)
 async def get_name(message: types.Message, state: FSMContext):
