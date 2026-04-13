@@ -174,12 +174,24 @@ async def lifespan(app: FastAPI):
     await bot.delete_webhook()
     await bot.session.close()
 
-# --- FastAPI приложение ---
 app = FastAPI(lifespan=lifespan)
+
+webhook_checked = False
 
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request) -> Response:
-    """Telegram будет слать обновления сюда"""
+    global webhook_checked
+    
+    # Принудительная установка webhook при первом запросе
+    if not webhook_checked:
+        try:
+            await bot.delete_webhook()
+            await bot.set_webhook(WEBHOOK_URL)
+            logging.info(f"Webhook forcibly set on first request: {WEBHOOK_URL}")
+        except Exception as e:
+            logging.error(f"Failed to set webhook: {e}")
+        webhook_checked = True
+    
     update = types.Update.model_validate(await request.json(), context={"bot": bot})
     await dp.feed_update(bot, update)
     return Response(status_code=200)
