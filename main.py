@@ -1,9 +1,7 @@
 import asyncio
 import os
 import logging
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -14,9 +12,6 @@ from aiogram.fsm.storage.memory import MemoryStorage
 # --- Конфигурация ---
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
-WEBHOOK_PATH = "/webhook"
-BASE_URL = "https://tg-bot-phonecare.onrender.com"
-WEBHOOK_URL = f"{BASE_URL}{WEBHOOK_PATH}"
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
@@ -174,37 +169,9 @@ async def handle_menu(message: types.Message):
     else:
         await message.answer('Используй кнопки.', reply_markup=kb)
 
-# --- Настройка webhook при запуске FastAPI ---
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
-    yield
-    await bot.delete_webhook()
-    await bot.session.close()
+async def main():
+    print("Бот запущен")
+    await dp.start_polling(bot)
 
-app = FastAPI(lifespan=lifespan)
-
-webhook_checked = False
-
-@app.post(WEBHOOK_PATH)
-async def webhook(request: Request) -> Response:
-    global webhook_checked
-    
-    # Принудительная установка webhook при первом запросе
-    if not webhook_checked:
-        try:
-            await bot.delete_webhook()
-            await bot.set_webhook(WEBHOOK_URL)
-            logging.info(f"Webhook forcibly set on first request: {WEBHOOK_URL}")
-        except Exception as e:
-            logging.error(f"Failed to set webhook: {e}")
-        webhook_checked = True
-    
-    update = types.Update.model_validate(await request.json(), context={"bot": bot})
-    await dp.feed_update(bot, update)
-    return Response(status_code=200)
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+if __name__ == "__main__":
+    asyncio.run(main())

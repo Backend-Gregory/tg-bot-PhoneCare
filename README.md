@@ -22,7 +22,6 @@
 - Python 3.11
 - aiogram 3.x
 - FSM (машина состояний)
-- FastAPI + Uvicorn (для деплоя на Render)
 
 ## 📱 Ссылка на бота
 
