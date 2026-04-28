@@ -12,6 +12,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
+from datetime import datetime
+
 # --- Конфигурация ---
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
@@ -23,6 +27,28 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+# --- Подключение БД ---
+engine = create_engine('sqlite+pysqlite:///orders.db')
+
+Session = sessionmaker(bind=engine)
+session = Session()
+
+class Base(DeclarativeBase):
+    pass
+
+# --- Таблица заявок ---
+class Order(Base):
+    __tablename__ = 'orders'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    service: Mapped[str] = mapped_column(nullable=False)
+    master: Mapped[str] = mapped_column(nullable=False)
+    name: Mapped[str] = mapped_column(nullable=False)
+    phone: Mapped[str] = mapped_column(nullable=False)
+    time: Mapped[str] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+
+Base.metadata.create_all(engine)
 
 # --- Клавиатура выбора услуг ---
 service_kb = ReplyKeyboardMarkup(
@@ -137,18 +163,39 @@ async def get_time(message: types.Message, state: FSMContext):
     await state.update_data(time=message.text)
     data = await state.get_data()
 
-    text = f"📝 Новая заявка!\n\n"
-    text += f"Услуга: {data.get('service')}\n"
-    text += f"Мастер: {data.get('master')}\n"
-    text += f"Имя: {data.get('name')}\n"
-    text += f"Телефон: {data.get('phone')}\n"
-    text += f"Время: {data.get('time')}"
-    
+    service = data.get('service')
+    master = data.get('master')
+    name = data.get('name')
+    phone = data.get('phone')
+    time = data.get('time')
+
+    order = Order(
+        service=service,
+        master=master,
+        name=name,
+        phone=phone,
+        time=time
+    )
+
     try:
+        session.add(order)
+        session.commit()
+        print('Заявка сохранена в БД')
+
+        text = f"📝 Новая заявка!\n\n"
+        text += f"Услуга: {service}\n"
+        text += f"Мастер: {master}\n"
+        text += f"Имя: {name}\n"
+        text += f"Телефон: {phone}\n"
+        text += f"Время: {time}"
+    
+    
         await bot.send_message(ADMIN_ID, text)
         await message.answer('✅ Спасибо! Мы свяжемся с вами.', reply_markup=kb)
         await state.clear()
     except Exception as e:
+        session.rollback()
+        await state.clear()
         logging.error(f"Ошибка отправки админу: {e}")
         await message.answer("❌ Техническая ошибка. Попробуйте позже.", reply_markup=kb)
 
