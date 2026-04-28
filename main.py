@@ -1,225 +1,28 @@
 import asyncio
-import os
 import logging
-from dotenv import load_dotenv
 
-load_dotenv()
-
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
+from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
-from datetime import datetime
+from config import TOKEN
+from database import init_db
+from handlers import router
 
-# --- Конфигурация ---
-TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-
-# --- Логирование ---
 logging.basicConfig(level=logging.INFO)
 
-# --- Инициализация бота ---
 bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
-
-# --- Подключение БД ---
-engine = create_engine('sqlite+pysqlite:///orders.db')
-
-Session = sessionmaker(bind=engine)
-session = Session()
-
-class Base(DeclarativeBase):
-    pass
-
-# --- Таблица заявок ---
-class Order(Base):
-    __tablename__ = 'orders'
-    id: Mapped[int] = mapped_column(primary_key=True)
-    service: Mapped[str] = mapped_column(nullable=False)
-    master: Mapped[str] = mapped_column(nullable=False)
-    name: Mapped[str] = mapped_column(nullable=False)
-    phone: Mapped[str] = mapped_column(nullable=False)
-    time: Mapped[str] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-
-Base.metadata.create_all(engine)
-
-# --- Клавиатура выбора услуг ---
-service_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text='Замена экрана'), KeyboardButton(text='Замена аккумулятора')],
-        [KeyboardButton(text='Диагностика'), KeyboardButton(text='Ремонт кнопок')]
-    ],
-    resize_keyboard=True
-)
-
-# --- Главная клавиатура ---
-kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text='📞 Контакты'), KeyboardButton(text='💼 Услуги')],
-        [KeyboardButton(text='💰 Цены'), KeyboardButton(text='📍 Адрес')],
-        [KeyboardButton(text='❓ Помощь')],
-        [KeyboardButton(text='📝 Записаться')]
-    ],
-    resize_keyboard=True
-)
-
-# --- FSM состояния ---
-class OrderForm(StatesGroup):
-    service = State()
-    master = State()
-    name = State()
-    phone = State()
-    time = State()
-
-# --- Мастера ---
-masters = {
-    "Замена экрана": ["Антон", "Дмитрий"],
-    "Замена аккумулятора": ["Антон", "Сергей"],
-    "Диагностика": ["Сергей"],
-    "Ремонт кнопок": ["Антон", "Дмитрий"]
-}
-
-# --- Хендлеры ---
-@dp.message(Command('start'))
-async def start(message: types.Message, state: FSMContext):
-    await state.clear()
-    await message.answer(
-        "Привет! Я бот мастерской PhoneCare.\n"
-        "Отремонтируем твой телефон быстро и недорого.\n"
-        "Выбери нужный раздел на кнопках ниже 👇",
-        reply_markup=kb
-    )
-
-@dp.message(lambda message: message.text == '📝 Записаться')
-async def start_order(message: types.Message, state: FSMContext):
-    await state.set_state(OrderForm.service)
-    await message.answer('Выбор услуги:', reply_markup=service_kb)
-
-@dp.message(OrderForm.service)
-async def get_service(message: types.Message, state: FSMContext):
-    if message.text not in masters:
-        await message.answer('Используй кнопки', reply_markup=service_kb)
-        return
-    await state.update_data(service=message.text)
-    await state.set_state(OrderForm.master)
-    master_kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=master)] for master in masters[message.text]
-        ],
-        resize_keyboard=True
-    )
-    await state.update_data(master_kb=master_kb)
-    await message.answer("Выбери мастера:", reply_markup=master_kb)
-
-@dp.message(OrderForm.master)
-async def get_master(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    service = data.get("service")
-    master_kb = data.get("master_kb")
-    if message.text not in masters.get(service, []):
-        await message.answer("❌ Выбери мастера из списка", reply_markup=master_kb)
-        return
-    
-    await state.update_data(master=message.text)
-    await state.set_state(OrderForm.name)
-    await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove())
-
-@dp.message(OrderForm.name)
-async def get_name(message: types.Message, state: FSMContext):
-    if not message.text or not message.text.strip():
-        await message.answer('Введите текст')
-        return
-    if len(message.text) > 100:
-        await message.answer("❌ Слишком длинное имя")
-        return
-    await state.update_data(name=message.text)
-    await state.set_state(OrderForm.phone)
-    await message.answer('Какой у вас номер телефона?')
-    
-@dp.message(OrderForm.phone)
-async def get_phone(message: types.Message, state: FSMContext):
-    if not message.text or not message.text.strip():
-        await message.answer('Введите текст')
-        return
-    if len(message.text) > 100:
-        await message.answer("❌ Слишком длинный телефон")
-        return
-    await state.update_data(phone=message.text)
-    await state.set_state(OrderForm.time)
-    await message.answer("Напиши удобное время и дату (например: завтра в 15:00)")
-
-@dp.message(OrderForm.time)
-async def get_time(message: types.Message, state: FSMContext):
-    if not message.text.strip():
-        await message.answer('Введите текст')
-        return
-    await state.update_data(time=message.text)
-    data = await state.get_data()
-
-    service = data.get('service')
-    master = data.get('master')
-    name = data.get('name')
-    phone = data.get('phone')
-    time = data.get('time')
-
-    order = Order(
-        service=service,
-        master=master,
-        name=name,
-        phone=phone,
-        time=time
-    )
-
-    try:
-        session.add(order)
-        session.commit()
-        print('Заявка сохранена в БД')
-
-        text = f"📝 Новая заявка!\n\n"
-        text += f"Услуга: {service}\n"
-        text += f"Мастер: {master}\n"
-        text += f"Имя: {name}\n"
-        text += f"Телефон: {phone}\n"
-        text += f"Время: {time}"
-    
-    
-        await bot.send_message(ADMIN_ID, text)
-        await message.answer('✅ Спасибо! Мы свяжемся с вами.', reply_markup=kb)
-        await state.clear()
-    except Exception as e:
-        session.rollback()
-        await state.clear()
-        logging.error(f"Ошибка отправки админу: {e}")
-        await message.answer("❌ Техническая ошибка. Попробуйте позже.", reply_markup=kb)
-
-@dp.message(Command('cancel'))
-async def cancel(message: types.Message, state: FSMContext):
-    await state.clear()
-    await message.answer('Опрос отменён', reply_markup=kb)
-
-@dp.message()
-async def handle_menu(message: types.Message):
-    if message.text == '📞 Контакты':
-        await message.answer('Телефон: +7 (999) 123-45-67\nTelegram: @phonecare\nВремя работы: 10:00–20:00')
-    elif message.text == '💼 Услуги':
-        await message.answer('• Замена экрана\n• Замена аккумулятора\n• Диагностика\n• Ремонт кнопок')
-    elif message.text == '💰 Цены':
-        await message.answer('• Замена экрана — от 2000₽\n• Аккумулятор — от 1500₽\n• Диагностика — 500₽ (бесплатно при ремонте)')
-    elif message.text == '📍 Адрес':
-        await message.answer('📍 г. Москва, ул. Строителей, д. 15\n🚇 м. Фрунзенская, выход к рынку')
-    elif message.text == '❓ Помощь':
-        await message.answer('📌 Используй кнопки меню.\nПо вопросам пиши @phonecare')
-    else:
-        await message.answer('Используй кнопки.', reply_markup=kb)
+dp.include_router(router)
 
 async def main():
+    try:
+        init_db()
+        print("✅ База данных готова")
+    except Exception as e:
+        logging.error(f"Ошибка БД: {e}")
+        return
+    
     print("Бот запущен")
     await dp.start_polling(bot)
 
