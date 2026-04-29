@@ -191,6 +191,21 @@ async def stats(message: types.Message) -> None:
 
     await message.answer(text, parse_mode="Markdown")
 
+@router.message(Command('list'), IsAdmin())
+async def list(message: types.Message) -> None:
+    orders = session.execute(select(Order).order_by(Order.id.desc()).limit(5)).scalars().all()
+
+    if not orders:
+        await message.answer("📭 Заявок пока нет")
+        return
+    
+    text = "📋 **Последние 5 заявок:**\n\n"
+    for order in orders:
+        date_str = order.created_at.strftime("%Y-%m-%d %H:%M")
+        text += f'`#{order.id}` | {order.service} | {order.name} | `{order.phone}` | {date_str}\n'
+    
+    await message.answer(text, parse_mode="Markdown")
+
 @router.message()
 async def handle_menu(message: types.Message) -> None:
     if message.text == '📞 Контакты':
