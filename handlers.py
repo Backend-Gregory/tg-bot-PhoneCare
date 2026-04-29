@@ -8,12 +8,12 @@ from config import ADMIN_ID, MAX_NAME_LENGTH, MAX_PHONE_LENGTH, MAX_TIME_LENGTH,
 from database import session, Order
 from keyboards import service_kb, main_kb
 from states import OrderForm
-from utils import format_order_message
+from utils import format_order_message, validate_phone
 
 router = Router()
 
 @router.message(Command('start'))
-async def start(message: types.Message, state: FSMContext):
+async def start(message: types.Message, state: FSMContext) -> None:
     await state.clear()
     await message.answer(
         "Привет! Я бот мастерской PhoneCare.\n"
@@ -23,12 +23,12 @@ async def start(message: types.Message, state: FSMContext):
     )
 
 @router.message(lambda message: message.text == '📝 Записаться')
-async def start_order(message: types.Message, state: FSMContext):
+async def start_order(message: types.Message, state: FSMContext) -> None:
     await state.set_state(OrderForm.service)
     await message.answer('Выбор услуги:', reply_markup=service_kb)
 
 @router.message(OrderForm.service)
-async def get_service(message: types.Message, state: FSMContext):
+async def get_service(message: types.Message, state: FSMContext) -> None:
     if message.text not in MASTERS:
         await message.answer('Используй кнопки', reply_markup=service_kb)
         return
@@ -44,7 +44,7 @@ async def get_service(message: types.Message, state: FSMContext):
     await message.answer("Выбери мастера:", reply_markup=master_kb)
 
 @router.message(OrderForm.master)
-async def get_master(message: types.Message, state: FSMContext):
+async def get_master(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     service = data.get("service")
     master_kb = data.get("master_kb")
@@ -57,7 +57,7 @@ async def get_master(message: types.Message, state: FSMContext):
     await message.answer('Как тебя зовут?', reply_markup=ReplyKeyboardRemove())
 
 @router.message(OrderForm.name)
-async def get_name(message: types.Message, state: FSMContext):
+async def get_name(message: types.Message, state: FSMContext) -> None:
     if not message.text or not message.text.strip():
         await message.answer('❌ Введите текст')
         return
@@ -69,19 +69,27 @@ async def get_name(message: types.Message, state: FSMContext):
     await message.answer('Какой у вас номер телефона?')
     
 @router.message(OrderForm.phone)
-async def get_phone(message: types.Message, state: FSMContext):
+async def get_phone(message: types.Message, state: FSMContext) -> None:
     if not message.text or not message.text.strip():
         await message.answer('Введите текст')
         return
     if len(message.text) > MAX_PHONE_LENGTH:
         await message.answer(f"❌ Слишком длинный телефон (макс {MAX_PHONE_LENGTH} символов)")
         return
+    if not validate_phone(message.text):
+        await message.answer(
+            '❌ Неверный формат номера\n\n'
+
+            'Номер должен начинаться с +7 или 8 и содержать 10 цифр.'
+            'Пример: +71234567890 или 81234567890'
+        )
+        return
     await state.update_data(phone=message.text)
     await state.set_state(OrderForm.time)
     await message.answer("Напиши удобное время и дату (например: завтра в 15:00)")
 
 @router.message(OrderForm.time)
-async def get_time(message: types.Message, state: FSMContext):
+async def get_time(message: types.Message, state: FSMContext) -> None:
     if not message.text.strip():
         await message.answer('❌ Введите текст')
         return
@@ -90,6 +98,17 @@ async def get_time(message: types.Message, state: FSMContext):
         return
     await state.update_data(time=message.text)
     data = await state.get_data()
+
+    required_fields = ['service', 'master', 'name', 'phone']
+    missing_fields = [field for field in required_fields if not data.get(field)]
+
+    if missing_fields:
+        await message.answer(
+            f"❌ Ошибка: потеряны данные ({', '.join(missing_fields)}).\n"
+            "Пожалуйста, начните заново с /start"
+        )
+        await state.clear()
+        return
 
     service = data.get('service')
     master = data.get('master')
@@ -121,7 +140,7 @@ async def get_time(message: types.Message, state: FSMContext):
         await message.answer("❌ Техническая ошибка. Попробуйте позже.", reply_markup=main_kb)
 
 @router.message(Command('cancel'))
-async def cancel(message: types.Message, state: FSMContext):
+async def cancel(message: types.Message, state: FSMContext) -> None:
     if await state.get_state() is None:
         await message.answer("Нет активного опроса")
         return
@@ -129,7 +148,7 @@ async def cancel(message: types.Message, state: FSMContext):
     await message.answer('Опрос отменён', reply_markup=main_kb)
 
 @router.message()
-async def handle_menu(message: types.Message):
+async def handle_menu(message: types.Message) -> None:
     if message.text == '📞 Контакты':
         await message.answer('Телефон: +7 (999) 123-45-67\nTelegram: @phonecare\nВремя работы: 10:00–20:00')
     elif message.text == '💼 Услуги':
