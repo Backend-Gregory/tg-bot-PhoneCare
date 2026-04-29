@@ -9,6 +9,7 @@ from config import TOKEN, ADMIN_ID
 from database import init_db
 from handlers import router
 from middlewares import RateLimitMiddleware
+from aiogram.types import BotCommandScopeChat, BotCommand
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,6 +35,16 @@ async def main():
     except Exception as e:
         logging.error(f"Ошибка БД: {e}")
         return
+    
+    await bot.set_my_commands([
+        BotCommand(command='start', description='Запустить бота'),
+        BotCommand(command='cancel', description='Выйти из опроса')
+    ])
+
+    await bot.set_my_commands([
+        BotCommand(command='stats', description='Статистика'),
+        BotCommand(command='list', description='Список заявок')
+    ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
     
     print("Бот запущен")
     await dp.start_polling(bot)

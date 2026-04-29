@@ -9,6 +9,9 @@ from database import session, Order
 from keyboards import service_kb, main_kb
 from states import OrderForm
 from utils import format_order_message, validate_phone
+from datetime import datetime, timedelta
+from sqlalchemy import select, func
+from filters import IsAdmin
 
 router = Router()
 
@@ -80,7 +83,7 @@ async def get_phone(message: types.Message, state: FSMContext) -> None:
         await message.answer(
             '❌ Неверный формат номера\n\n'
 
-            'Номер должен начинаться с +7 или 8 и содержать 10 цифр.'
+            'Номер должен начинаться с +7 или 8 и содержать 10 цифр.\n'
             'Пример: +71234567890 или 81234567890'
         )
         return
@@ -146,6 +149,47 @@ async def cancel(message: types.Message, state: FSMContext) -> None:
         return
     await state.clear()
     await message.answer('Опрос отменён', reply_markup=main_kb)
+
+@router.message(Command('stats'), IsAdmin())
+async def stats(message: types.Message) -> None:
+    total = session.execute(select(func.count(Order.id))).scalar()
+
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+
+    today_count = session.execute(
+        select(func.count(Order.id)).where(
+            Order.created_at >= today_start,
+            Order.created_at < today_end
+        )
+    ).scalar()
+
+    week_ago = datetime.now() - timedelta(days=7)
+    week_count = session.execute(
+        select(func.count(Order.id)).where(Order.created_at >= week_ago)
+    ).scalar()
+
+    month_ago = datetime.now() - timedelta(days=30)
+    month_count = session.execute(
+        select(func.count(Order.id)).where(Order.created_at >= month_ago)
+    ).scalar()
+
+    service_stats = session.execute(
+        select(Order.service, func.count(Order.id)).group_by(Order.service)
+    ).all()
+
+    text = "📊 **Статистика**\n\n"
+    text += f"📌 Всего заявок: `{total}`\n\n"
+    text += "📅 **По периодам:**\n"
+    text += f"   • Сегодня: `{today_count}`\n"
+    text += f"   • За неделю: `{week_count}`\n"
+    text += f"   • За месяц: `{month_count}`\n\n"
+    text += "🔧 **По услугам:**\n"
+
+    for service, count in service_stats:
+        text += f"   • {service}: `{count}`\n"
+
+    await message.answer(text, parse_mode="Markdown")
 
 @router.message()
 async def handle_menu(message: types.Message) -> None:
